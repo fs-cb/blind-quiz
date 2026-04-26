@@ -194,7 +194,7 @@ export default function AdminEdit() {
             <input
               type="text"
               className="input-field"
-              placeholder="例：都会のブラインドワイン会"
+              placeholder="例：ブラインドワイン会"
               value={title}
               onChange={e => setTitle(e.target.value)}
             />
@@ -222,7 +222,7 @@ export default function AdminEdit() {
                   <input
                     type="text"
                     className="input-field"
-                    placeholder="例：産地、品種、年号"
+                    placeholder="例：産地、品種、VT"
                     value={item.name}
                     onChange={e => updateItem(itemIdx, 'name', e.target.value)}
                   />
