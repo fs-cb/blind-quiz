@@ -229,9 +229,17 @@ export default function AdminPanel() {
             </h2>
             <div className="flex flex-wrap gap-3">
               {status === 'entry' && (
-                <button className="btn-velvet" onClick={() => setStatus('answering')}>
-                  ▶ 回答受付を開始する
-                </button>
+                <>
+                  <button className="btn-velvet" onClick={() => setStatus('answering')}>
+                    ▶ 回答受付を開始する
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => router.push(`/admin/edit?session_id=${session_id}&token=${token}`)}
+                  >
+                    ✏️ 設問を編集する
+                  </button>
+                </>
               )}
               {status === 'answering' && (
                 <button className="btn-velvet" onClick={() => setStatus('revealed')}>
