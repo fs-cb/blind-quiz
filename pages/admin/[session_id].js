@@ -203,28 +203,33 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          {/* ── QR Code ── */}
-          {status === 'entry' && (
-            <div className="card text-center">
-              <h2 className="font-display text-lg font-semibold mb-4" style={{ color: '#4C1D95' }}>
+          {/* ── QR Code ── 常に表示 */}
+          <div className="card text-center">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-lg font-semibold" style={{ color: '#4C1D95' }}>
                 参加者QRコード
               </h2>
-              {joinUrl && (
-                <div className="flex flex-col items-center gap-4">
-                  <div
-                    className="p-4 bg-white rounded-2xl"
-                    style={{ border: '3px solid #7C3AED', display: 'inline-block' }}
-                  >
-                    <QRCodeSVG value={joinUrl} size={180} fgColor="#4C1D95" />
-                  </div>
-                  <p className="text-xs text-gray-400 break-all max-w-xs">{joinUrl}</p>
-                  <button className="btn-ghost" onClick={handleCopy}>
-                    {copied ? '✓ コピーしました' : '🔗 URLをコピー'}
-                  </button>
-                </div>
+              {status !== 'entry' && (
+                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                  {status === 'answering' ? '回答受付中' : '受付終了'}
+                </span>
               )}
             </div>
-          )}
+            {joinUrl && (
+              <div className="flex flex-col items-center gap-4">
+                <div
+                  className="p-4 bg-white rounded-2xl"
+                  style={{ border: '3px solid #7C3AED', display: 'inline-block' }}
+                >
+                  <QRCodeSVG value={joinUrl} size={180} fgColor="#4C1D95" />
+                </div>
+                <p className="text-xs text-gray-400 break-all max-w-xs">{joinUrl}</p>
+                <button className="btn-ghost" onClick={handleCopy}>
+                  {copied ? '✓ コピーしました' : '🔗 URLをコピー'}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* ── Control Panel ── */}
           <div className="card">
