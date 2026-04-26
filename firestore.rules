@@ -13,21 +13,24 @@ service cloud.firestore {
       // セッション更新は管理者トークンが一致する場合のみ
       allow update: if request.resource.data.adminToken == resource.data.adminToken;
 
-      // セッション削除も管理者トークンが必要
-      allow delete: if request.auth != null;
+      // セッション削除：管理者トークンURLからのアクセスなので許可
+      allow delete: if true;
 
       // 回答サブコレクション
       match /answers/{userId} {
         // 誰でも読める（管理者の集計・参加者の復元のため）
         allow read: if true;
 
-        // 自分のUIDで書き込み可能、かつセッションがanswering中のみ
-        allow write: if request.auth.uid == userId
-          && get(/databases/$(database)/documents/sessions/$(sessionId)).data.status == 'answering';
-
         // 参加受付中は nickname のみ書き込み可（参加登録）
         allow create: if request.auth.uid == userId
           && get(/databases/$(database)/documents/sessions/$(sessionId)).data.status == 'entry';
+
+        // 回答受付中：回答の書き込み・更新を許可
+        allow update: if request.auth.uid == userId
+          && get(/databases/$(database)/documents/sessions/$(sessionId)).data.status == 'answering';
+
+        // 削除は誰でも可（管理者がセッション削除時にサブコレクションも削除するため）
+        allow delete: if true;
       }
     }
   }

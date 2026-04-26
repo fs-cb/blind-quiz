@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { db } from '../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 
 const STATUS_LABEL = {
   entry:     { label: '参加受付中', emoji: '🟡' },
@@ -33,6 +33,24 @@ export default function Home() {
       })
     ).then(results => setSessions(results.filter(Boolean)));
   }, []);
+
+  // Firestoreからセッションを完全削除
+  const deleteSession = async (id) => {
+    if (!window.confirm('このワイン会を削除しますか？\n参加者データもすべて消えます。')) return;
+    try {
+      const answersSnap = await getDocs(collection(db, 'sessions', id, 'answers'));
+      await Promise.all(answersSnap.docs.map(d => deleteDoc(d.ref)));
+      await deleteDoc(doc(db, 'sessions', id));
+    } catch (e) {
+      console.error(e);
+    }
+    // localStorageからも削除
+    setSessions(prev => {
+      const next = prev.filter(s => s.id !== id);
+      try { localStorage.setItem('wine-quiz-sessions', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   const removeFromList = (id) => {
     setSessions(prev => {
@@ -114,15 +132,20 @@ export default function Home() {
                         <span className="text-xs text-velvet-600 font-semibold group-hover:underline">
                           管理者画面を開く →
                         </span>
-                        <button
-                          className="text-xs text-gray-300 hover:text-red-400 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm('一覧から削除しますか？\n（セッション自体は消えません）')) removeFromList(s.id);
-                          }}
-                        >
-                          一覧から削除
-                        </button>
+                        <div className="flex gap-3" onClick={e => e.stopPropagation()}>
+                          <button
+                            className="text-xs text-gray-300 hover:text-red-500 transition-colors font-semibold"
+                            onClick={() => deleteSession(s.id)}
+                          >
+                            🗑 削除
+                          </button>
+                          <button
+                            className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
+                            onClick={() => removeFromList(s.id)}
+                          >
+                            一覧から外す
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

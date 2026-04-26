@@ -110,6 +110,12 @@ export default function AdminPanel() {
       const answersSnap = await getDocs(collection(db, 'sessions', session_id, 'answers'));
       await Promise.all(answersSnap.docs.map(d => deleteDoc(d.ref)));
       await deleteDoc(doc(db, 'sessions', session_id));
+      // localStorageからも削除
+      try {
+        const stored = JSON.parse(localStorage.getItem('wine-quiz-sessions') || '[]');
+        const updated = stored.filter(s => s.id !== session_id);
+        localStorage.setItem('wine-quiz-sessions', JSON.stringify(updated));
+      } catch {}
       router.push('/');
     } catch (e) {
       console.error(e);
