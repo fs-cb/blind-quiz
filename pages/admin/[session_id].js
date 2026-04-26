@@ -243,6 +243,16 @@ export default function AdminPanel() {
                   <button className="btn-gold" onClick={() => exportCSV(session, rankedAnswers)}>
                     📥 CSVでダウンロード
                   </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => {
+                      if (window.confirm('締切を解除して回答受付中に戻しますか？\n参加者が再度回答できるようになります。')) {
+                        setStatus('answering');
+                      }
+                    }}
+                  >
+                    🔓 締切を解除して受付に戻す
+                  </button>
                 </div>
               )}
             </div>
