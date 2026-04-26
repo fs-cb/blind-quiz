@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&family=Nunito:wght@400;500;600;700&display=swap');
+
+:root {
+  --cream: #FEF9F0;
+  --velvet: #6D28D9;
+  --velvet-dark: #4C1D95;
+  --velvet-light: #9333EA;
+  --gold: #D97706;
+  --gold-light: #F59E0B;
+  --espresso: #1C1209;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--cream);
+  color: var(--espresso);
+  font-family: 'Nunito', sans-serif;
+  min-height: 100vh;
+}
+
+/* Background texture pattern */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 80%, rgba(109, 40, 217, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(217, 119, 6, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(109, 40, 217, 0.02) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Velvet button */
+.btn-velvet {
+  @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-body font-semibold text-white transition-all duration-200;
+  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 50%, #5B21B6 100%);
+  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+  letter-spacing: 0.02em;
+}
+
+.btn-velvet:hover {
+  background: linear-gradient(135deg, #9333EA 0%, #7C3AED 50%, #6D28D9 100%);
+  box-shadow: 0 6px 24px rgba(109, 40, 217, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  transform: translateY(-1px);
+}
+
+.btn-velvet:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.3);
+}
+
+.btn-velvet:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Gold outline button */
+.btn-gold {
+  @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-body font-semibold transition-all duration-200;
+  border: 2px solid var(--gold);
+  color: var(--gold);
+  background: transparent;
+}
+
+.btn-gold:hover {
+  background: var(--gold);
+  color: white;
+}
+
+/* Ghost button */
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-body font-semibold text-sm transition-all duration-200;
+  color: #6B7280;
+  border: 1.5px solid #E5E7EB;
+}
+
+.btn-ghost:hover {
+  border-color: var(--velvet);
+  color: var(--velvet);
+}
+
+/* Danger button */
+.btn-danger {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-body font-semibold text-sm transition-all duration-200;
+  color: #DC2626;
+  border: 1.5px solid #FCA5A5;
+}
+
+.btn-danger:hover {
+  background: #FEE2E2;
+}
+
+/* Card */
+.card {
+  @apply bg-white rounded-2xl p-6;
+  box-shadow: 0 2px 16px rgba(28, 18, 9, 0.07);
+  border: 1px solid rgba(253, 240, 220, 0.8);
+}
+
+/* Radio option */
+.radio-option {
+  @apply flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-150;
+  border: 2px solid #EDE9FE;
+  background: white;
+}
+
+.radio-option:hover {
+  border-color: var(--velvet-light);
+  background: #F5F3FF;
+}
+
+.radio-option.selected {
+  border-color: var(--velvet);
+  background: #EDE9FE;
+}
+
+.radio-option input[type="radio"] {
+  accent-color: var(--velvet);
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+/* Status badge */
+.badge-entry {
+  @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold;
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.badge-answering {
+  @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold;
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.badge-revealed {
+  @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold;
+  background: #EDE9FE;
+  color: #4C1D95;
+}
+
+/* Rank medal */
+.rank-1 { color: #F59E0B; }
+.rank-2 { color: #9CA3AF; }
+.rank-3 { color: #B45309; }
+
+/* Input field */
+.input-field {
+  @apply w-full px-4 py-3 rounded-xl border-2 border-purple-100 bg-white font-body text-espresso placeholder-gray-400 transition-colors duration-150 outline-none;
+}
+
+.input-field:focus {
+  border-color: var(--velvet);
+  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.1);
+}
+
+/* Divider with wine glass */
+.wine-divider {
+  @apply flex items-center gap-4 my-6;
+}
+
+.wine-divider::before,
+.wine-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(109, 40, 217, 0.2), transparent);
+}
+
+/* Page transition */
+.page-enter {
+  animation: slideUp 0.4s ease-out forwards;
+}
+
+/* Score bar */
+.score-bar {
+  @apply h-2 rounded-full transition-all duration-700;
+  background: linear-gradient(90deg, #7C3AED, #9333EA);
+}
+
+/* Loading dots */
+.loading-dots span {
+  @apply inline-block w-2 h-2 mx-0.5 rounded-full bg-velvet-500;
+  animation: pulseSoft 1.4s ease-in-out infinite;
+}
+
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }

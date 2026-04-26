@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // セッションドキュメント
+    match /sessions/{sessionId} {
+      // 誰でも読める（参加者がステータスをリアルタイムで受信するため）
+      allow read: if true;
+
+      // セッション作成は誰でも可（管理者）
+      allow create: if true;
+
+      // セッション更新は管理者トークンが一致する場合のみ
+      allow update: if request.resource.data.adminToken == resource.data.adminToken;
+
+      // セッション削除も管理者トークンが必要
+      allow delete: if request.auth != null;
+
+      // 回答サブコレクション
+      match /answers/{userId} {
+        // 誰でも読める（管理者の集計・参加者の復元のため）
+        allow read: if true;
+
+        // 自分のUIDで書き込み可能、かつセッションがanswering中のみ
+        allow write: if request.auth.uid == userId
+          && get(/databases/$(database)/documents/sessions/$(sessionId)).data.status == 'answering';
+
+        // 参加受付中は nickname のみ書き込み可（参加登録）
+        allow create: if request.auth.uid == userId
+          && get(/databases/$(database)/documents/sessions/$(sessionId)).data.status == 'entry';
+      }
+    }
+  }
+}
