@@ -216,7 +216,7 @@ export default function AdminPanel() {
             </button>
           </div>
 
-          {/* ── Control Panel ── */}}
+          {/* ── Control Panel ── */}
           <div className="card">
             <h2 className="font-display text-lg font-semibold mb-4" style={{ color: '#4C1D95' }}>
               進行コントロール
