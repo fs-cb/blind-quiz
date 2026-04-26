@@ -36,7 +36,7 @@ export default function Home() {
 
   // Firestoreからセッションを完全削除
   const deleteSession = async (id) => {
-    if (!window.confirm('このワイン会を削除しますか？\n参加者データもすべて消えます。')) return;
+    if (!window.confirm('このクイズを削除しますか？\n参加者データもすべて消えます。')) return;
     try {
       const answersSnap = await getDocs(collection(db, 'sessions', id, 'answers'));
       await Promise.all(answersSnap.docs.map(d => deleteDoc(d.ref)));
