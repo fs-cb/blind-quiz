@@ -98,6 +98,19 @@ export default function AdminNew() {
       };
 
       const ref = await addDoc(collection(db, 'sessions'), sessionData);
+
+      // localStorageにセッション情報を保存（一覧表示用）
+      try {
+        const stored = JSON.parse(localStorage.getItem('wine-quiz-sessions') || '[]');
+        stored.unshift({
+          id: ref.id,
+          token: adminToken,
+          title: title.trim(),
+          createdAt: new Date().toISOString(),
+        });
+        localStorage.setItem('wine-quiz-sessions', JSON.stringify(stored.slice(0, 20)));
+      } catch {}
+
       router.push(`/admin/${ref.id}?token=${adminToken}`);
     } catch (e) {
       console.error(e);
