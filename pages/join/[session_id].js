@@ -1,11 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { db, auth } from '../../lib/firebase';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 
-// ── localStorage helpers（nicknameのみ保存） ──────────────────────────────────
+// ── localStorage helpers ──────────────────────────────────────────────────────
 function getStoredNickname(sessionId) {
   try { return localStorage.getItem(`wine-quiz-nick-${sessionId}`) || ''; }
   catch { return ''; }
@@ -22,23 +21,24 @@ function calcScore(responses, items) {
 }
 
 // ── NicknameScreen ────────────────────────────────────────────────────────────
-function NicknameScreen({ onSubmit, loading }) {
+function NicknameScreen({ session, onSubmit, loading }) {
   const [name, setName] = useState('');
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="max-w-sm w-full page-enter">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🍷</div>
-          <h1 className="text-3xl font-display font-bold" style={{ color: '#4C1D95' }}>
-            クイズに参加
+          <div className="text-5xl mb-4">🍷</div>
+          {/* イベント名を表示 */}
+          <h1 className="text-2xl font-display font-bold mb-1" style={{ color: '#4C1D95' }}>
+            {session?.title || ''}
           </h1>
-          <p className="text-gray-400 mt-2 text-sm">ニックネームを入力してください</p>
+          <p className="text-gray-400 mt-2 text-sm">ニックネームを入力して参加してください</p>
         </div>
         <div className="card space-y-4">
           <input
             type="text"
             className="input-field text-center text-lg"
-            placeholder="例：じゅんじゅん"
+            placeholder="例：ワイン探偵"
             value={name}
             onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && name.trim() && onSubmit(name.trim())}
@@ -70,7 +70,7 @@ function WaitingScreen({ session, nickname }) {
           <span className="font-semibold" style={{ color: '#7C3AED' }}>{nickname}</span> さん、準備完了です 🎉
         </p>
         <div className="card">
-          <p className="text-sm text-gray-400 mb-3">本日のクイズ</p>
+          <p className="text-sm text-gray-400 mb-3">本日のワイン会</p>
           <p className="text-lg font-display font-semibold" style={{ color: '#4C1D95' }}>
             {session.title}
           </p>
@@ -93,6 +93,13 @@ function AnsweringScreen({ session, uid, nickname, responses, setResponses }) {
     () => responses && Object.keys(responses).length > 0
   );
   const [voteError, setVoteError] = useState('');
+
+  // responsesが外部から復元されたときにhasVotedを同期
+  useEffect(() => {
+    if (responses && Object.keys(responses).length > 0) {
+      setHasVoted(true);
+    }
+  }, [responses]);
 
   const allAnswered = items.every(item => responses[item.name]);
 
@@ -202,10 +209,10 @@ function RevealedScreen({ session, responses, nickname }) {
   const pct = totalMax > 0 ? Math.round((score / totalMax) * 100) : 0;
 
   const getMessage = () => {
-    if (pct === 100) return { emoji: '🏆', text: '完璧です！おめでとう！' };
+    if (pct === 100) return { emoji: '🏆', text: '完璧です！ソムリエ級！' };
     if (pct >= 70)  return { emoji: '🎉', text: 'お見事！センスがありますね！' };
     if (pct >= 40)  return { emoji: '🍇', text: 'なかなか！次回も楽しみ！' };
-    return { emoji: '😄', text: '楽しい時間を過ごしましょう！' };
+    return { emoji: '😄', text: 'ワインは飲んで楽しむもの！' };
   };
   const { emoji, text } = getMessage();
 
@@ -262,7 +269,7 @@ function RevealedScreen({ session, responses, nickname }) {
         <div className="card text-center text-gray-400">
           <p className="text-2xl mb-2">🥂</p>
           <p className="text-sm font-body">お疲れ様でした！{nickname} さん</p>
-          <p className="text-xs mt-1">また次回お会いしましょう</p>
+          <p className="text-xs mt-1">また次回のワイン会でお会いしましょう</p>
         </div>
       </div>
     </div>
@@ -271,8 +278,14 @@ function RevealedScreen({ session, responses, nickname }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function JoinPage() {
-  const router = useRouter();
-  const { session_id } = router.query;
+  const [session_id, setSessionId] = useState(null);
+
+  // Next.jsのrouterを使わずURLから直接session_idを取得
+  // → ページ遷移なしでもURLが変わったとき確実にリセットされる
+  useEffect(() => {
+    const id = window.location.pathname.split('/join/')[1];
+    if (id) setSessionId(id);
+  }, []);
 
   const [session, setSession]     = useState(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -280,20 +293,49 @@ export default function JoinPage() {
   const [nickname, setNickname]   = useState('');
   const [joining, setJoining]     = useState(false);
   const [responses, setResponses] = useState({});
-  const initialized = useRef(false);
 
-  // ── STEP1: Auth復元（ページ表示の前提） ────────────────────
-  // ページが変わるたびに毎回確実に匿名認証を確立する
+  // Firestoreリスナーのクリーンアップ用ref
+  const sessionUnsubRef = useRef(null);
+
+  // ── STEP1: session_idが確定したら全状態をリセットして再接続 ─
   useEffect(() => {
-    if (!session_id || initialized.current) return;
-    initialized.current = true;
+    if (!session_id) return;
+
+    // 前のリスナーを確実に解除
+    if (sessionUnsubRef.current) {
+      sessionUnsubRef.current();
+      sessionUnsubRef.current = null;
+    }
+
+    // 状態をリセット
+    setSession(null);
+    setNickname('');
+    setResponses({});
+    setPageLoading(true);
+
+    // セッション監視を開始
+    sessionUnsubRef.current = onSnapshot(
+      doc(db, 'sessions', session_id),
+      snap => {
+        if (snap.exists()) setSession({ id: snap.id, ...snap.data() });
+        else setSession(null);
+        setPageLoading(false);
+      }
+    );
+
+    return () => {
+      if (sessionUnsubRef.current) sessionUnsubRef.current();
+    };
+  }, [session_id]);
+
+  // ── STEP2: Firebase Auth確立 ────────────────────────────────
+  useEffect(() => {
+    if (!session_id) return;
 
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // 既存の匿名ユーザーを再利用
         setUid(user.uid);
       } else {
-        // 認証なし → 匿名サインイン
         try {
           const cred = await signInAnonymously(auth);
           setUid(cred.user.uid);
@@ -305,38 +347,31 @@ export default function JoinPage() {
     return unsub;
   }, [session_id]);
 
-  // ── STEP2: セッション監視 ───────────────────────────────────
-  useEffect(() => {
-    if (!session_id) return;
-    const unsub = onSnapshot(doc(db, 'sessions', session_id), snap => {
-      if (snap.exists()) setSession({ id: snap.id, ...snap.data() });
-      else setSession(null);
-      setPageLoading(false);
-    });
-    return unsub;
-  }, [session_id]);
-
-  // ── STEP3: uid確定後、このセッションの回答データを復元 ─────
+  // ── STEP3: uid確定後にこのセッションの回答データを復元 ─────
   useEffect(() => {
     if (!session_id || !uid) return;
 
-    // localStorageにnicknameがあれば先に復元（画面ちらつき防止）
+    // localStorageのnicknameを先に反映（ちらつき防止）
     const storedNick = getStoredNickname(session_id);
     if (storedNick) setNickname(storedNick);
 
-    // Firestoreから最新の回答を取得
+    // Firestoreから最新データを取得
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'sessions', session_id, 'answers', uid));
         if (snap.exists()) {
           const data = snap.data();
+          // nickname復元
           if (data.nickname) {
             setNickname(data.nickname);
             setStoredNickname(session_id, data.nickname);
           }
-          if (data.responses) setResponses(data.responses);
+          // 回答状況を復元
+          if (data.responses && Object.keys(data.responses).length > 0) {
+            setResponses(data.responses);
+          }
         } else {
-          // このセッションには未参加 → nicknameをリセット
+          // このセッションに未参加 → クリーンな状態に
           setNickname('');
           setResponses({});
         }
@@ -393,7 +428,8 @@ export default function JoinPage() {
     return (
       <>
         <Head><title>{session.title} | Wine Quiz</title></Head>
-        <NicknameScreen onSubmit={handleNicknameSubmit} loading={joining || !uid} />
+        {/* sessionを渡してイベント名を表示 */}
+        <NicknameScreen session={session} onSubmit={handleNicknameSubmit} loading={joining} />
       </>
     );
   }
