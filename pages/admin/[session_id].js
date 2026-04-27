@@ -422,7 +422,7 @@ export default function AdminPanel() {
               onClick={handleDelete}
               disabled={deleting}
             >
-              {deleting ? '削除中...' : '🗑 このワイン会を削除する'}
+              {deleting ? '削除中...' : '🗑 このクイズを削除する'}
             </button>
             <p className="text-xs text-gray-400 mt-2">参加者データも含めて完全に削除されます</p>
           </div>
