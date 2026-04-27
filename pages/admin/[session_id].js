@@ -202,9 +202,16 @@ export default function AdminPanel() {
                     {session.title}
                   </h1>
                 </div>
-                <span className={statusInfo.cls}>
-                  {statusInfo.dot} {statusInfo.label}
-                </span>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className={statusInfo.cls}>
+                    {statusInfo.dot} {statusInfo.label}
+                  </span>
+                  {session.adminCode && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-velvet-700 text-white">
+                      🔑 {session.adminCode}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-400 mb-1">参加者数</p>
