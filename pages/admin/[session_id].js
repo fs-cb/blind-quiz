@@ -63,6 +63,7 @@ export default function AdminPanel() {
   const [joinUrl, setJoinUrl]   = useState('');
   const [copied, setCopied]     = useState(false);
   const confirmDelete = useRef(false);
+  const prevStatusRef = useRef(null);
 
   // Build join URL after mount (needs window)
   useEffect(() => {
@@ -77,6 +78,18 @@ export default function AdminPanel() {
     const unsub = onSnapshot(doc(db, 'sessions', session_id), snap => {
       if (!snap.exists()) { setLoading(false); return; }
       const data = { id: snap.id, ...snap.data() };
+      const prev = prevStatusRef.current;
+      const next = data.status;
+
+      // 集計ボタン押下（answering→revealed）または締切解除（revealed→answering）時にリロード
+      if (prev !== null && prev !== next &&
+          ((prev === 'answering' && next === 'revealed') ||
+           (prev === 'revealed'  && next === 'answering'))) {
+        window.location.reload();
+        return;
+      }
+
+      prevStatusRef.current = next;
       setSession(data);
       if (token && data.adminToken === token) setAuthOk(true);
       setLoading(false);
@@ -104,7 +117,7 @@ export default function AdminPanel() {
 
   // ── Delete session ──────────────────────────────────────────
   const handleDelete = async () => {
-    if (!window.confirm('このワイン会を削除しますか？参加者データもすべて消えます。')) return;
+    if (!window.confirm('このクイズを削除しますか？参加者データもすべて消えます。')) return;
     setDeleting(true);
     try {
       const answersSnap = await getDocs(collection(db, 'sessions', session_id, 'answers'));
@@ -341,8 +354,6 @@ export default function AdminPanel() {
                   const rank = idx + 1;
                   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
                   const answered = a.responses && Object.keys(a.responses).length > 0;
-                  const pct = totalMax > 0 ? (a.score / totalMax) * 100 : 0;
-
                   const updatedTime = a.lastUpdatedAt?.toDate
                     ? a.lastUpdatedAt.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                     : null;
@@ -373,12 +384,6 @@ export default function AdminPanel() {
                         )}
                       </div>
 
-                      {/* スコアバーは常に表示（回答済みのみ） */}
-                      {answered && (
-                        <div className="h-1.5 bg-purple-100 rounded-full mt-2 overflow-hidden">
-                          <div className="score-bar" style={{ width: `${pct}%` }} />
-                        </div>
-                      )}
 
                       {status === 'revealed' && (
                         <>

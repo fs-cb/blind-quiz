@@ -291,6 +291,7 @@ export default function JoinPage() {
 
   const [joining, setJoining]   = useState(false);
   const unsubSessionRef = useRef(null);
+  const prevStatusRef = useRef(null);
 
   // ── Phase 1: Firebase Auth ──────────────────────────────────
   useEffect(() => {
@@ -318,7 +319,22 @@ export default function JoinPage() {
 
     unsubSessionRef.current = onSnapshot(
       doc(db, 'sessions', session_id),
-      snap => setSession(snap.exists() ? { id: snap.id, ...snap.data() } : null)
+      snap => {
+        if (!snap.exists()) { setSession(null); return; }
+        const data = { id: snap.id, ...snap.data() };
+        const prev = prevStatusRef.current;
+        const next = data.status;
+
+        // answering → revealed に変わった瞬間にリロード
+        // リロード後は最新データをFirestoreから取り直して採点画面を表示
+        if (prev === 'answering' && next === 'revealed') {
+          window.location.reload();
+          return;
+        }
+
+        prevStatusRef.current = next;
+        setSession(data);
+      }
     );
 
     return () => { if (unsubSessionRef.current) unsubSessionRef.current(); };
