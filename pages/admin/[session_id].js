@@ -130,10 +130,16 @@ export default function AdminPanel() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // ── Ranked answers ──────────────────────────────────────────
+  // ── Ranked answers（得点降順 → 投票時間昇順） ──────────────
   const rankedAnswers = [...answers]
     .map(a => ({ ...a, score: calcScore(a.responses, session?.items || []) }))
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      // 同点の場合は投票時間が早い順
+      const tA = a.lastUpdatedAt?.seconds ?? Infinity;
+      const tB = b.lastUpdatedAt?.seconds ?? Infinity;
+      return tA - tB;
+    });
 
   // ── Loading / auth ──────────────────────────────────────────
   if (loading) {
@@ -337,29 +343,45 @@ export default function AdminPanel() {
                   const answered = a.responses && Object.keys(a.responses).length > 0;
                   const pct = totalMax > 0 ? (a.score / totalMax) * 100 : 0;
 
+                  const updatedTime = a.lastUpdatedAt?.toDate
+                    ? a.lastUpdatedAt.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : null;
+
                   return (
                     <div key={a.id} className="p-3 bg-cream-100 rounded-xl border border-cream-200">
                       <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base w-8">{status === 'revealed' ? medal : '👤'}</span>
-                          <span className="font-semibold text-sm text-gray-700">{a.nickname}</span>
-                          {!answered && status === 'answering' && (
-                            <span className="text-xs text-gray-400">(未回答)</span>
-                          )}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-base w-8 flex-shrink-0">{medal}</span>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-sm text-gray-700 block truncate">{a.nickname}</span>
+                            {answered && updatedTime && (
+                              <span className="text-xs text-gray-400">{updatedTime}</span>
+                            )}
+                            {!answered && (
+                              <span className="text-xs text-gray-400">未回答</span>
+                            )}
+                          </div>
                         </div>
-                        {status === 'revealed' && (
-                          <span className="font-bold text-velvet-700 font-display text-lg">
-                            {a.score}
+                        {/* 回答済みなら常にスコアを表示 */}
+                        {answered && (
+                          <div className="text-right flex-shrink-0 ml-2">
+                            <span className="font-bold text-velvet-700 font-display text-lg">
+                              {a.score}
+                            </span>
                             <span className="text-xs text-gray-400 font-body">/{totalMax}点</span>
-                          </span>
+                          </div>
                         )}
                       </div>
 
+                      {/* スコアバーは常に表示（回答済みのみ） */}
+                      {answered && (
+                        <div className="h-1.5 bg-purple-100 rounded-full mt-2 overflow-hidden">
+                          <div className="score-bar" style={{ width: `${pct}%` }} />
+                        </div>
+                      )}
+
                       {status === 'revealed' && (
                         <>
-                          <div className="h-1.5 bg-purple-100 rounded-full mt-2 overflow-hidden">
-                            <div className="score-bar" style={{ width: `${pct}%` }} />
-                          </div>
                           {/* Per-item breakdown */}
                           <div className="flex flex-wrap gap-2 mt-2">
                             {items.map(item => {
