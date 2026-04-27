@@ -132,7 +132,7 @@ export default function Home() {
           <div className="text-center mb-10">
             <div className="text-7xl mb-5">🍷</div>
             <h1 className="text-5xl font-display font-bold mb-2" style={{ color: '#4C1D95', letterSpacing: '-0.02em' }}>
-              Wine Quiz
+              Our Answer
             </h1>
             <p className="text-base font-display italic mb-1" style={{ color: '#7C3AED' }}>
               クイズ・プラットフォーム
