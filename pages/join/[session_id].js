@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { db, auth } from '../../lib/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import {
-  doc, collection, onSnapshot, setDoc, serverTimestamp, getDoc
+  doc, onSnapshot, setDoc, serverTimestamp, getDoc
 } from 'firebase/firestore';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getStoredUid(sessionId) {
   try { return localStorage.getItem(`wine-quiz-uid-${sessionId}`); }
@@ -94,8 +94,18 @@ function WaitingScreen({ session, nickname }) {
 
 // ── Screen: Answering ─────────────────────────────────────────────────────────
 
-function AnsweringScreen({ session, uid, nickname, responses, setResponses, submitting, setSubmitting }) {
+function AnsweringScreen({ session, uid, nickname, responses, setResponses, authReady }) {
   const items = session.items || [];
+  const [submitting, setSubmitting] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [voteError, setVoteError] = useState('');
+
+  // 既存の回答があれば投票済みとみなす
+  useEffect(() => {
+    if (responses && Object.keys(responses).length > 0) {
+      setHasVoted(true);
+    }
+  }, []);
 
   const handleSelect = (itemName, option) => {
     setResponses(prev => ({ ...prev, [itemName]: option }));
@@ -104,8 +114,9 @@ function AnsweringScreen({ session, uid, nickname, responses, setResponses, subm
   const allAnswered = items.every(item => responses[item.name]);
 
   const handleVote = async () => {
-    if (!allAnswered) return;
+    if (!allAnswered || !authReady) return;
     setSubmitting(true);
+    setVoteError('');
     try {
       await setDoc(
         doc(db, 'sessions', session.id, 'answers', uid),
@@ -116,8 +127,10 @@ function AnsweringScreen({ session, uid, nickname, responses, setResponses, subm
         },
         { merge: true }
       );
+      setHasVoted(true);
     } catch (e) {
       console.error(e);
+      setVoteError('投票に失敗しました。もう一度お試しください。');
     } finally {
       setSubmitting(false);
     }
@@ -136,6 +149,12 @@ function AnsweringScreen({ session, uid, nickname, responses, setResponses, subm
           <p className="text-sm text-gray-400 mt-1">
             <span className="font-semibold text-velvet-600">{nickname}</span> さん、あなたの答えは？
           </p>
+          {/* 投票済みバッジ */}
+          {hasVoted && (
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+              ✓ 投票済み ── 変更して再投票できます
+            </div>
+          )}
         </div>
 
         {/* Questions */}
@@ -178,13 +197,27 @@ function AnsweringScreen({ session, uid, nickname, responses, setResponses, subm
           ))}
         </div>
 
+        {/* Error */}
+        {voteError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm text-center">
+            ⚠️ {voteError}
+          </div>
+        )}
+
         {/* Vote button */}
         <button
           className="btn-velvet w-full py-4 text-base"
           onClick={handleVote}
-          disabled={!allAnswered || submitting}
+          disabled={!allAnswered || submitting || !authReady}
         >
-          {submitting ? '送信中...' : allAnswered ? '🍾 投票する' : `あと ${items.filter(i => !responses[i.name]).length} 項目回答してください`}
+          {submitting
+            ? '送信中...'
+            : !allAnswered
+            ? `あと ${items.filter(i => !responses[i.name]).length} 項目回答してください`
+            : hasVoted
+            ? '🔄 再投票する'
+            : '🍾 投票する'
+          }
         </button>
 
         <p className="text-center text-xs text-gray-400 mt-3">
@@ -227,10 +260,7 @@ function RevealedScreen({ session, responses, nickname }) {
           <div className="h-3 bg-purple-100 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-1000 delay-300"
-              style={{
-                width: `${pct}%`,
-                background: 'linear-gradient(90deg, #7C3AED, #9333EA)',
-              }}
+              style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #7C3AED, #9333EA)' }}
             />
           </div>
           <p className="text-xs text-gray-400 mt-2">正解率 {pct}%</p>
@@ -249,9 +279,7 @@ function RevealedScreen({ session, responses, nickname }) {
                 <div
                   key={i}
                   className={`p-4 rounded-xl border-2 ${
-                    correct
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-red-50 border-red-200'
+                    correct ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -266,10 +294,7 @@ function RevealedScreen({ session, responses, nickname }) {
                         </p>
                       )}
                     </div>
-                    <span
-                      className="text-sm font-bold"
-                      style={{ color: correct ? '#065F46' : '#9CA3AF' }}
-                    >
+                    <span className="text-sm font-bold" style={{ color: correct ? '#065F46' : '#9CA3AF' }}>
                       {correct ? `+${item.point}点` : '+0点'}
                     </span>
                   </div>
@@ -295,22 +320,35 @@ export default function JoinPage() {
   const router = useRouter();
   const { session_id } = router.query;
 
-  const [session, setSession]     = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [uid, setUid]             = useState(null);
-  const [nickname, setNickname]   = useState('');
-  const [joining, setJoining]     = useState(false);
+  const [session, setSession]   = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [uid, setUid]           = useState(null);
+  const [authReady, setAuthReady] = useState(false); // ← 認証復元完了フラグ
+  const [nickname, setNickname] = useState('');
+  const [joining, setJoining]   = useState(false);
   const [responses, setResponses] = useState({});
-  const [submitting, setSubmitting] = useState(false);
 
-  // Restore uid from localStorage
+  // ── Firebase Auth の復元を待つ ──────────────────────────────
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // 既存の匿名ユーザーが復元された
+        setUid(user.uid);
+        if (session_id) setStoredUid(session_id, user.uid);
+      }
+      setAuthReady(true);
+    });
+    return unsub;
+  }, [session_id]);
+
+  // ── localStorageからUID復元（authより先に取得しておく） ────
   useEffect(() => {
     if (!session_id) return;
     const stored = getStoredUid(session_id);
     if (stored) setUid(stored);
   }, [session_id]);
 
-  // Listen to session
+  // ── セッションをリアルタイム監視 ───────────────────────────
   useEffect(() => {
     if (!session_id) return;
     const unsub = onSnapshot(doc(db, 'sessions', session_id), snap => {
@@ -320,9 +358,9 @@ export default function JoinPage() {
     return unsub;
   }, [session_id]);
 
-  // If uid exists, restore answer doc
+  // ── UID確定後に回答データを復元 ────────────────────────────
   useEffect(() => {
-    if (!session_id || !uid) return;
+    if (!session_id || !uid || !authReady) return;
     (async () => {
       const snap = await getDoc(doc(db, 'sessions', session_id, 'answers', uid));
       if (snap.exists()) {
@@ -331,14 +369,14 @@ export default function JoinPage() {
         if (data.responses) setResponses(data.responses);
       }
     })();
-  }, [session_id, uid]);
+  }, [session_id, uid, authReady]);
 
-  // Handle nickname submit → anonymous auth → create answer doc
+  // ── ニックネーム登録 ────────────────────────────────────────
   const handleNicknameSubmit = async (name) => {
     setJoining(true);
     try {
       let currentUid = uid;
-      if (!currentUid) {
+      if (!currentUid || !auth.currentUser) {
         const cred = await signInAnonymously(auth);
         currentUid = cred.user.uid;
         setUid(currentUid);
@@ -381,7 +419,6 @@ export default function JoinPage() {
     );
   }
 
-  // No nickname yet → show entry screen
   if (!nickname) {
     return (
       <>
@@ -406,8 +443,7 @@ export default function JoinPage() {
           nickname={nickname}
           responses={responses}
           setResponses={setResponses}
-          submitting={submitting}
-          setSubmitting={setSubmitting}
+          authReady={authReady}
         />
       )}
       {status === 'revealed' && (
