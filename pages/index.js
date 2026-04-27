@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { db } from '../lib/firebase';
-import { doc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, deleteDoc, query, where, limit } from 'firebase/firestore';
 
 const STATUS_LABEL = {
   entry:     { label: '参加受付中', emoji: '🟡' },
@@ -13,6 +13,9 @@ const STATUS_LABEL = {
 export default function Home() {
   const router = useRouter();
   const [sessions, setSessions] = useState([]);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeError, setCodeError] = useState('');
 
   useEffect(() => {
     const stored = (() => {
@@ -36,7 +39,7 @@ export default function Home() {
 
   // Firestoreからセッションを完全削除
   const deleteSession = async (id) => {
-    if (!window.confirm('このクイズを削除しますか？\n参加者データもすべて消えます。')) return;
+    if (!window.confirm('このワイン会を削除しますか？\n参加者データもすべて消えます。')) return;
     try {
       const answersSnap = await getDocs(collection(db, 'sessions', id, 'answers'));
       await Promise.all(answersSnap.docs.map(d => deleteDoc(d.ref)));
@@ -50,6 +53,49 @@ export default function Home() {
       try { localStorage.setItem('wine-quiz-sessions', JSON.stringify(next)); } catch {}
       return next;
     });
+  };
+
+  // セッションコードでFirestoreを検索して管理者画面へ
+  const handleCodeJoin = async () => {
+    const code = codeInput.trim();
+    if (code.length !== 4) { setCodeError('4桁のコードを入力してください'); return; }
+    setCodeLoading(true);
+    setCodeError('');
+    try {
+      const q = query(
+        collection(db, 'sessions'),
+        where('adminCode', '==', code),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        setCodeError('セッションが見つかりません。コードを確認してください。');
+        return;
+      }
+      const sessionDoc = snap.docs[0];
+      const data = sessionDoc.data();
+      // localStorageにも追加（一覧に反映）
+      try {
+        const stored = JSON.parse(localStorage.getItem('wine-quiz-sessions') || '[]');
+        const exists = stored.some(s => s.id === sessionDoc.id);
+        if (!exists) {
+          stored.unshift({
+            id: sessionDoc.id,
+            token: data.adminToken,
+            adminCode: data.adminCode,
+            title: data.title,
+            createdAt: new Date().toISOString(),
+          });
+          localStorage.setItem('wine-quiz-sessions', JSON.stringify(stored.slice(0, 20)));
+        }
+      } catch {}
+      router.push(`/admin/${sessionDoc.id}?token=${data.adminToken}`);
+    } catch (e) {
+      console.error(e);
+      setCodeError('エラーが発生しました。もう一度お試しください。');
+    } finally {
+      setCodeLoading(false);
+    }
   };
 
   const removeFromList = (id) => {
@@ -71,7 +117,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Our Answer</title>
+        <title>ブラインドワイン会クイズ</title>
       </Head>
 
       <main className="relative min-h-screen py-12 px-4 overflow-hidden">
@@ -86,10 +132,10 @@ export default function Home() {
           <div className="text-center mb-10">
             <div className="text-7xl mb-5">🍷</div>
             <h1 className="text-5xl font-display font-bold mb-2" style={{ color: '#4C1D95', letterSpacing: '-0.02em' }}>
-              Our Answer
+              Wine Quiz
             </h1>
             <p className="text-base font-display italic mb-1" style={{ color: '#7C3AED' }}>
-              クイズ・プラットフォーム
+              ブラインドクイズ・プラットフォーム
             </p>
             <div className="wine-divider">
               <span className="text-xs font-body text-gray-400 tracking-widest">探究を、もっと自由に。</span>
@@ -97,10 +143,43 @@ export default function Home() {
           </div>
 
           {/* New session */}
-          <button className="btn-velvet w-full text-base py-4 mb-8" onClick={() => router.push('/admin/new')}>
+          <button className="btn-velvet w-full text-base py-4 mb-4" onClick={() => router.push('/admin/new')}>
             <span className="text-lg">✦</span>
-            新しいクイズを始める
+            新しいワイン会を始める
           </button>
+
+          {/* Code join */}
+          <div className="card mb-8">
+            <p className="text-sm font-semibold text-gray-600 mb-3">
+              🔑 セッションコードで参加
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                className="input-field flex-1 text-center text-2xl font-display tracking-[0.5em]"
+                placeholder="0000"
+                value={codeInput}
+                onChange={e => {
+                  setCodeError('');
+                  setCodeInput(e.target.value.replace(/\D/g, '').slice(0, 4));
+                }}
+                onKeyDown={e => e.key === 'Enter' && handleCodeJoin()}
+              />
+              <button
+                className="btn-velvet px-6"
+                onClick={handleCodeJoin}
+                disabled={codeInput.length !== 4 || codeLoading}
+              >
+                {codeLoading ? '...' : '→'}
+              </button>
+            </div>
+            {codeError && (
+              <p className="text-xs text-red-500 mt-2">{codeError}</p>
+            )}
+          </div>
 
           {/* Session list */}
           {sessions.length > 0 && (
@@ -122,7 +201,10 @@ export default function Home() {
                           <p className="font-display font-semibold text-lg truncate group-hover:text-velvet-700 transition-colors" style={{ color: '#1C1209' }}>
                             {s.title}
                           </p>
-                          <p className="text-xs text-gray-400 mt-0.5">{formatDate(s.createdAt)}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {s.adminCode && <span className="font-mono font-bold text-velvet-600 mr-2">#{s.adminCode}</span>}
+                            {formatDate(s.createdAt)}
+                          </p>
                         </div>
                         <span className="text-xs font-semibold px-2 py-1 rounded-full bg-purple-50 text-velvet-700 flex-shrink-0">
                           {statusInfo.emoji} {statusInfo.label}

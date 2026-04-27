@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { db } from '../../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
 const defaultItem = () => ({
@@ -84,10 +84,26 @@ export default function AdminNew() {
 
     try {
       const adminToken = uuidv4();
+
+      // 重複しない4桁のセッションコードを生成
+      let adminCode = '';
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const candidate = String(Math.floor(Math.random() * 9000) + 1000); // 1000〜9999
+        const q = query(
+          collection(db, 'sessions'),
+          where('adminCode', '==', candidate),
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) { adminCode = candidate; break; }
+      }
+      if (!adminCode) throw new Error('セッションコードの生成に失敗しました');
+
       const sessionData = {
         title: title.trim(),
         status: 'entry',
         adminToken,
+        adminCode,
         createdAt: serverTimestamp(),
         items: items.map(({ id, name, options, correct, point }) => ({
           name: name.trim(),
@@ -105,6 +121,7 @@ export default function AdminNew() {
         stored.unshift({
           id: ref.id,
           token: adminToken,
+          adminCode,
           title: title.trim(),
           createdAt: new Date().toISOString(),
         });
@@ -123,7 +140,7 @@ export default function AdminNew() {
   return (
     <>
       <Head>
-        <title>新しいクイズを作成 | Wine Quiz</title>
+        <title>新しいワイン会を作成 | Wine Quiz</title>
       </Head>
 
       <main className="relative min-h-screen py-12 px-4">
@@ -133,7 +150,7 @@ export default function AdminNew() {
           <div className="text-center mb-10">
             <div className="text-4xl mb-3">🍷</div>
             <h1 className="text-4xl font-display font-bold" style={{ color: '#4C1D95' }}>
-              クイズを作成
+              ワイン会を作成
             </h1>
             <p className="mt-2 text-gray-500 font-body">評価項目と選択肢を自由に設定できます</p>
           </div>
@@ -146,7 +163,7 @@ export default function AdminNew() {
             <input
               type="text"
               className="input-field"
-              placeholder="例：ブラインドワイン会"
+              placeholder="例：都会のブラインドワイン会"
               value={title}
               onChange={e => setTitle(e.target.value)}
             />
@@ -177,7 +194,7 @@ export default function AdminNew() {
                   <input
                     type="text"
                     className="input-field"
-                    placeholder="例：産地、品種、VT"
+                    placeholder="例：産地、品種、年号"
                     value={item.name}
                     onChange={e => updateItem(itemIdx, 'name', e.target.value)}
                   />
@@ -299,7 +316,7 @@ export default function AdminNew() {
                 作成中...
               </>
             ) : (
-              <>✦ クイズを作成する</>
+              <>✦ ワイン会を作成する</>
             )}
           </button>
 
