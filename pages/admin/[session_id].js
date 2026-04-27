@@ -63,7 +63,6 @@ export default function AdminPanel() {
   const [joinUrl, setJoinUrl]   = useState('');
   const [copied, setCopied]     = useState(false);
   const confirmDelete = useRef(false);
-  const prevStatusRef = useRef(null);
 
   // Build join URL after mount (needs window)
   useEffect(() => {
@@ -78,18 +77,6 @@ export default function AdminPanel() {
     const unsub = onSnapshot(doc(db, 'sessions', session_id), snap => {
       if (!snap.exists()) { setLoading(false); return; }
       const data = { id: snap.id, ...snap.data() };
-      const prev = prevStatusRef.current;
-      const next = data.status;
-
-      // 集計ボタン押下（answering→revealed）または締切解除（revealed→answering）時にリロード
-      if (prev !== null && prev !== next &&
-          ((prev === 'answering' && next === 'revealed') ||
-           (prev === 'revealed'  && next === 'answering'))) {
-        window.location.reload();
-        return;
-      }
-
-      prevStatusRef.current = next;
       setSession(data);
       if (token && data.adminToken === token) setAuthOk(true);
       setLoading(false);
@@ -111,8 +98,9 @@ export default function AdminPanel() {
   }, [session_id]);
 
   // ── Status control ──────────────────────────────────────────
-  const setStatus = async (status) => {
+  const setStatus = async (status, reload = false) => {
     await updateDoc(doc(db, 'sessions', session_id), { status });
+    if (reload) window.location.reload();
   };
 
   // ── Delete session ──────────────────────────────────────────
@@ -261,7 +249,7 @@ export default function AdminPanel() {
                 </>
               )}
               {status === 'answering' && (
-                <button className="btn-velvet" onClick={() => setStatus('revealed')}>
+                <button className="btn-velvet" onClick={() => setStatus('revealed', true)}>
                   ✦ 集計して結果を発表する
                 </button>
               )}
@@ -274,7 +262,7 @@ export default function AdminPanel() {
                     className="btn-ghost"
                     onClick={() => {
                       if (window.confirm('締切を解除して回答受付中に戻しますか？\n参加者が再度回答できるようになります。')) {
-                        setStatus('answering');
+                        setStatus('answering', true);
                       }
                     }}
                   >
