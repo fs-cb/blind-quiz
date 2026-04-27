@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { db, auth } from '../../lib/firebase';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
@@ -28,7 +29,6 @@ function NicknameScreen({ session, onSubmit, loading }) {
       <div className="max-w-sm w-full page-enter">
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">🍷</div>
-          {/* イベント名を表示 */}
           <h1 className="text-2xl font-display font-bold mb-1" style={{ color: '#4C1D95' }}>
             {session?.title || ''}
           </h1>
@@ -89,16 +89,12 @@ function WaitingScreen({ session, nickname }) {
 function AnsweringScreen({ session, uid, nickname, responses, setResponses }) {
   const items = session.items || [];
   const [submitting, setSubmitting] = useState(false);
-  const [hasVoted, setHasVoted] = useState(
-    () => responses && Object.keys(responses).length > 0
-  );
-  const [voteError, setVoteError] = useState('');
+  const [hasVoted, setHasVoted]     = useState(false);
+  const [voteError, setVoteError]   = useState('');
 
-  // responsesが外部から復元されたときにhasVotedを同期
+  // responsesが復元されたとき投票済み状態を反映
   useEffect(() => {
-    if (responses && Object.keys(responses).length > 0) {
-      setHasVoted(true);
-    }
+    if (responses && Object.keys(responses).length > 0) setHasVoted(true);
   }, [responses]);
 
   const allAnswered = items.every(item => responses[item.name]);
@@ -256,7 +252,8 @@ function RevealedScreen({ session, responses, nickname }) {
                         </p>
                       )}
                     </div>
-                    <span className="text-sm font-bold" style={{ color: correct ? '#065F46' : '#9CA3AF' }}>
+                    <span className="text-sm font-bold"
+                      style={{ color: correct ? '#065F46' : '#9CA3AF' }}>
                       {correct ? `+${item.point}点` : '+0点'}
                     </span>
                   </div>
@@ -278,60 +275,61 @@ function RevealedScreen({ session, responses, nickname }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function JoinPage() {
-  const [session_id, setSessionId] = useState(null);
+  const router = useRouter();
+  const { session_id } = router.query;
 
-  // Next.jsのrouterを使わずURLから直接session_idを取得
-  // → ページ遷移なしでもURLが変わったとき確実にリセットされる
-  useEffect(() => {
-    const id = window.location.pathname.split('/join/')[1];
-    if (id) setSessionId(id);
-  }, []);
-
-  const [session, setSession]     = useState(null);
+  const [session, setSession]       = useState(null);
   const [pageLoading, setPageLoading] = useState(true);
-  const [uid, setUid]             = useState(null);
-  const [nickname, setNickname]   = useState('');
-  const [joining, setJoining]     = useState(false);
-  const [responses, setResponses] = useState({});
+  const [uid, setUid]               = useState(null);
+  const [nickname, setNickname]     = useState('');
+  const [joining, setJoining]       = useState(false);
+  const [responses, setResponses]   = useState({});
+  const [dataRestored, setDataRestored] = useState(false);
 
-  // Firestoreリスナーのクリーンアップ用ref
-  const sessionUnsubRef = useRef(null);
+  // Firestoreセッションリスナーの参照（クリーンアップ用）
+  const unsubRef = useRef(null);
+  // 前回処理したsession_id（変化を検知して再初期化するため）
+  const prevSessionIdRef = useRef(null);
 
-  // ── STEP1: session_idが確定したら全状態をリセットして再接続 ─
+  // ── session_idが変わるたびにリスナーを貼り直す ─────────────
   useEffect(() => {
     if (!session_id) return;
 
-    // 前のリスナーを確実に解除
-    if (sessionUnsubRef.current) {
-      sessionUnsubRef.current();
-      sessionUnsubRef.current = null;
+    // 同じsession_idなら何もしない
+    if (session_id === prevSessionIdRef.current) return;
+    prevSessionIdRef.current = session_id;
+
+    // 前のリスナーを解除
+    if (unsubRef.current) {
+      unsubRef.current();
+      unsubRef.current = null;
     }
 
-    // 状態をリセット
+    // 状態をリセット（新しいセッションに切り替わったとき）
     setSession(null);
     setNickname('');
     setResponses({});
+    setDataRestored(false);
     setPageLoading(true);
 
-    // セッション監視を開始
-    sessionUnsubRef.current = onSnapshot(
+    // 新しいセッションを監視
+    unsubRef.current = onSnapshot(
       doc(db, 'sessions', session_id),
       snap => {
-        if (snap.exists()) setSession({ id: snap.id, ...snap.data() });
-        else setSession(null);
+        setSession(snap.exists() ? { id: snap.id, ...snap.data() } : null);
         setPageLoading(false);
       }
     );
 
     return () => {
-      if (sessionUnsubRef.current) sessionUnsubRef.current();
+      if (unsubRef.current) unsubRef.current();
     };
   }, [session_id]);
 
-  // ── STEP2: Firebase Auth確立 ────────────────────────────────
+  // ── Firebase匿名認証を確立 ──────────────────────────────────
+  // デバイスごとに一意のUIDを発行・維持。複数人が各自のデバイスで
+  // QRを読み込むと、それぞれ別のUIDになるので全員同時参加できる。
   useEffect(() => {
-    if (!session_id) return;
-
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUid(user.uid);
@@ -345,41 +343,42 @@ export default function JoinPage() {
       }
     });
     return unsub;
-  }, [session_id]);
+  }, []);
 
-  // ── STEP3: uid確定後にこのセッションの回答データを復元 ─────
+  // ── uid × session_id が揃ったら回答データを復元 ────────────
+  // 同じ人が再度QRを読んだとき、Firestoreからその人の回答を取得して
+  // ニックネーム・選択済み回答を画面に反映する。
   useEffect(() => {
-    if (!session_id || !uid) return;
+    if (!session_id || !uid || dataRestored) return;
 
-    // localStorageのnicknameを先に反映（ちらつき防止）
+    // localStorageのnicknameを先に反映（画面ちらつき防止）
     const storedNick = getStoredNickname(session_id);
     if (storedNick) setNickname(storedNick);
 
-    // Firestoreから最新データを取得
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'sessions', session_id, 'answers', uid));
         if (snap.exists()) {
           const data = snap.data();
-          // nickname復元
           if (data.nickname) {
             setNickname(data.nickname);
             setStoredNickname(session_id, data.nickname);
           }
-          // 回答状況を復元
           if (data.responses && Object.keys(data.responses).length > 0) {
-            setResponses(data.responses);
+            setResponses(data.responses); // 前回の回答を復元
           }
         } else {
-          // このセッションに未参加 → クリーンな状態に
+          // このセッションは未参加 → クリーン状態
           setNickname('');
           setResponses({});
         }
       } catch (e) {
         console.error(e);
+      } finally {
+        setDataRestored(true);
       }
     })();
-  }, [session_id, uid]);
+  }, [session_id, uid, dataRestored]);
 
   // ── ニックネーム登録 ────────────────────────────────────────
   const handleNicknameSubmit = async (name) => {
@@ -400,8 +399,8 @@ export default function JoinPage() {
     }
   };
 
-  // ── 読み込み中 ──────────────────────────────────────────────
-  if (pageLoading || !uid) {
+  // ── 読み込み中（認証完了 & セッション取得完了を待つ） ───────
+  if (pageLoading || !uid || !dataRestored) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -428,7 +427,6 @@ export default function JoinPage() {
     return (
       <>
         <Head><title>{session.title} | Wine Quiz</title></Head>
-        {/* sessionを渡してイベント名を表示 */}
         <NicknameScreen session={session} onSubmit={handleNicknameSubmit} loading={joining} />
       </>
     );
