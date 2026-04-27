@@ -38,7 +38,7 @@ function NicknameScreen({ session, onSubmit, loading }) {
           <input
             type="text"
             className="input-field text-center text-lg"
-            placeholder="例：ワイン探偵"
+            placeholder="例：じゅんじゅん"
             value={name}
             onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && name.trim() && onSubmit(name.trim())}
@@ -70,7 +70,7 @@ function WaitingScreen({ session, nickname }) {
           <span className="font-semibold" style={{ color: '#7C3AED' }}>{nickname}</span> さん、準備完了です 🎉
         </p>
         <div className="card">
-          <p className="text-sm text-gray-400 mb-3">本日のワイン会</p>
+          <p className="text-sm text-gray-400 mb-3">本日のクイズ</p>
           <p className="text-lg font-display font-semibold" style={{ color: '#4C1D95' }}>
             {session.title}
           </p>
@@ -205,10 +205,10 @@ function RevealedScreen({ session, responses, nickname }) {
   const pct = totalMax > 0 ? Math.round((score / totalMax) * 100) : 0;
 
   const getMessage = () => {
-    if (pct === 100) return { emoji: '🏆', text: '完璧です！ソムリエ級！' };
+    if (pct === 100) return { emoji: '🏆', text: '完璧です！おめでとう！' };
     if (pct >= 70)  return { emoji: '🎉', text: 'お見事！センスがありますね！' };
     if (pct >= 40)  return { emoji: '🍇', text: 'なかなか！次回も楽しみ！' };
-    return { emoji: '😄', text: 'ワインは飲んで楽しむもの！' };
+    return { emoji: '😄', text: '楽しく過ごしましょう！' };
   };
   const { emoji, text } = getMessage();
 
@@ -266,7 +266,7 @@ function RevealedScreen({ session, responses, nickname }) {
         <div className="card text-center text-gray-400">
           <p className="text-2xl mb-2">🥂</p>
           <p className="text-sm font-body">お疲れ様でした！{nickname} さん</p>
-          <p className="text-xs mt-1">また次回のワイン会でお会いしましょう</p>
+          <p className="text-xs mt-1">また次回お会いしましょう</p>
         </div>
       </div>
     </div>
