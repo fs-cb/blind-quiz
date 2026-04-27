@@ -104,7 +104,7 @@ export default function AdminPanel() {
 
   // ── Delete session ──────────────────────────────────────────
   const handleDelete = async () => {
-    if (!window.confirm('このワイン会を削除しますか？参加者データもすべて消えます。')) return;
+    if (!window.confirm('このクイズを削除しますか？参加者データもすべて消えます。')) return;
     setDeleting(true);
     try {
       const answersSnap = await getDocs(collection(db, 'sessions', session_id, 'answers'));
