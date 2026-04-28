@@ -250,6 +250,18 @@ export default function Home() {
             </div>
           )}
 
+          {/* Manual link */}
+          <div className="text-center mt-8">
+            <a
+              href="https://agreeable-marigold-eff.notion.site/Our-Answer-350da829bae380d6ab69e95e427015bf?source=copy_link"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-gray-400 hover:text-velvet-600 transition-colors"
+            >
+              📖 使い方ガイド
+            </a>
+          </div>
+
         </div>
       </main>
     </>
