@@ -196,6 +196,34 @@ function AnsweringScreen({ session, uid, nickname, initResponses }) {
   );
 }
 
+// ── ClosedScreen ─────────────────────────────────────────────────────────────
+function ClosedScreen({ session, nickname }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+      <div className="max-w-sm w-full text-center page-enter">
+        <div className="text-6xl mb-6">🔒</div>
+        <h2 className="text-2xl font-display font-bold mb-2" style={{ color: '#4C1D95' }}>
+          回答を締め切りました
+        </h2>
+        <p className="text-gray-500 mb-8">
+          <span className="font-semibold" style={{ color: '#7C3AED' }}>{nickname}</span> さんの回答を受け付けました
+        </p>
+        <div className="card">
+          <p className="text-sm text-gray-400 mb-3">本日のクイズ</p>
+          <p className="text-lg font-display font-semibold" style={{ color: '#4C1D95' }}>
+            {session.title}
+          </p>
+          <div className="wine-divider mt-4" />
+          <div className="loading-dots flex justify-center gap-1 mt-2">
+            <span /><span /><span />
+          </div>
+          <p className="text-xs text-gray-400 mt-2">主催者が結果を発表するまでお待ちください</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── RevealedScreen ────────────────────────────────────────────────────────────
 function RevealedScreen({ session, responses, nickname }) {
   const items = session.items || [];
@@ -325,9 +353,9 @@ export default function JoinPage() {
         const prev = prevStatusRef.current;
         const next = data.status;
 
-        // answering → revealed に変わった瞬間にリロード
+        // closed → revealed に変わった瞬間にリロード
         // リロード後は最新データをFirestoreから取り直して採点画面を表示
-        if (prev === 'answering' && next === 'revealed') {
+        if (prev === 'closed' && next === 'revealed') {
           window.location.reload();
           return;
         }
@@ -454,6 +482,9 @@ export default function JoinPage() {
           nickname={nickname}
           initResponses={initResponses}
         />
+      )}
+      {session.status === 'closed' && (
+        <ClosedScreen session={session} nickname={nickname} />
       )}
       {session.status === 'revealed' && (
         <RevealedScreen session={session} responses={initResponses} nickname={nickname} />

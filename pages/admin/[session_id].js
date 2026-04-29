@@ -19,6 +19,7 @@ function calcScore(responses, items) {
 const STATUS_LABEL = {
   entry:     { label: '参加受付中', cls: 'badge-entry',     dot: '🟡' },
   answering: { label: '回答受付中', cls: 'badge-answering', dot: '🟢' },
+  closed:    { label: '回答締切済', cls: 'badge-entry',     dot: '🔴' },
   revealed:  { label: '結果発表中', cls: 'badge-revealed',  dot: '🟣' },
 };
 
@@ -256,14 +257,37 @@ export default function AdminPanel() {
                 </>
               )}
               {status === 'answering' && (
-                <button className="btn-velvet" onClick={() => setStatus('revealed', true)}>
-                  ✦ 集計して結果を発表する
+                <button className="btn-velvet" onClick={() => setStatus('closed', true)}>
+                  🔒 回答を締め切る
                 </button>
+              )}
+              {status === 'closed' && (
+                <div className="flex flex-wrap gap-3 w-full">
+                  <button className="btn-velvet" onClick={() => setStatus('revealed', true)}>
+                    ✦ 結果を参加者に表示する
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => {
+                      if (window.confirm('締切を解除して回答受付中に戻しますか？')) {
+                        setStatus('answering', true);
+                      }
+                    }}
+                  >
+                    🔓 受付に戻す
+                  </button>
+                </div>
               )}
               {status === 'revealed' && (
                 <div className="flex flex-wrap gap-3 w-full">
                   <button className="btn-gold" onClick={() => exportCSV(session, rankedAnswers)}>
                     📥 CSVでダウンロード
+                  </button>
+                  <button
+                    className="btn-velvet"
+                    onClick={() => router.push(`/admin/results/${session_id}?token=${token}`)}
+                  >
+                    📊 結果詳細を見る
                   </button>
                   <button
                     className="btn-ghost"
@@ -279,7 +303,7 @@ export default function AdminPanel() {
               )}
             </div>
 
-            {status === 'answering' && (
+            {(status === 'answering' || status === 'closed') && (
               <div className="mt-4 p-3 bg-purple-50 rounded-xl">
                 <p className="text-sm text-velvet-700">
                   回答済み: <strong>{answeredCount}</strong> / {answers.length} 人
