@@ -267,6 +267,12 @@ export default function AdminPanel() {
                     ✦ 結果を参加者に表示する
                   </button>
                   <button
+                    className="btn-velvet"
+                    onClick={() => router.push(`/admin/results/${session_id}?token=${token}`)}
+                  >
+                    📊 結果詳細を見る
+                  </button>
+                  <button
                     className="btn-ghost"
                     onClick={() => {
                       if (window.confirm('締切を解除して回答受付中に戻しますか？')) {
