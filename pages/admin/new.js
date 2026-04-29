@@ -140,7 +140,7 @@ export default function AdminNew() {
   return (
     <>
       <Head>
-        <title>新しいワイン会を作成 | Wine Quiz</title>
+        <title>新しいイベントを作成 | Wine Quiz</title>
       </Head>
 
       <main className="relative min-h-screen py-12 px-4">
@@ -150,7 +150,7 @@ export default function AdminNew() {
           <div className="text-center mb-10">
             <div className="text-4xl mb-3">🍷</div>
             <h1 className="text-4xl font-display font-bold" style={{ color: '#4C1D95' }}>
-              ワイン会を作成
+              イベントを作成
             </h1>
             <p className="mt-2 text-gray-500 font-body">評価項目と選択肢を自由に設定できます</p>
           </div>
@@ -316,7 +316,7 @@ export default function AdminNew() {
                 作成中...
               </>
             ) : (
-              <>✦ ワイン会を作成する</>
+              <>✦ イベントを作成する</>
             )}
           </button>
 
